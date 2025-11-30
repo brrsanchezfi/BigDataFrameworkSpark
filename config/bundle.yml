@@ -1,0 +1,19 @@
+bundle:
+  name: FrameworkDatabricks
+  target: ${var.env}
+
+variables:
+  workspaceId: ${var.workspaceId}
+
+targets:
+  dev:
+    workspace:
+      id: 4142847529395360
+    include:
+      - environments/dev.yml
+
+  prd:
+    workspace:
+      id: 4142847529312312
+    include:
+      - environments/prd.yml
