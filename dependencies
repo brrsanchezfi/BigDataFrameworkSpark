@@ -1,0 +1,104 @@
+// Dependency Graph
+digraph {
+	graph [bgcolor=white concentrate=true dpi=300 fontname=Helvetica nodesep=0.45 pad=0.4 rankdir=LR ranksep=1.1 splines=polyline]
+	edge [arrowhead=normal arrowsize=0.8]
+	subgraph cluster___init__ {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=__init__ style=rounded
+		__init__ [label=__init__ color="#1E88E5" fillcolor="#BBDEFB" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip=__init__]
+	}
+	subgraph cluster_argparse {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=argparse style=rounded
+		argparse [label=argparse color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip=argparse]
+	}
+	subgraph cluster_databricks {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=databricks style=rounded
+		databricks_connect_DatabricksSession [label="databricks.connect.DatabricksSession" color="#FB8C00" fillcolor="#FFE0B2" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip="databricks.connect.DatabricksSession"]
+	}
+	subgraph cluster_datetime {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=datetime style=rounded
+		datetime_date [label="datetime.date" color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip="datetime.date"]
+	}
+	subgraph cluster_demoApp {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=demoApp style=rounded
+		demoApp [label=demoApp color="#1E88E5" fillcolor="#BBDEFB" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip=demoApp]
+	}
+	subgraph cluster_example {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=example style=rounded
+		example [label=example color="#1E88E5" fillcolor="#BBDEFB" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip=example]
+	}
+	subgraph cluster_functools {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=functools style=rounded
+		functools [label=functools color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip=functools]
+	}
+	subgraph cluster_json {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=json style=rounded
+		json [label=json color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip=json]
+	}
+	subgraph cluster_launcher {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=launcher style=rounded
+		launcher [label=launcher color="#1E88E5" fillcolor="#BBDEFB" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip=launcher]
+	}
+	subgraph cluster_logger_config {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=logger_config style=rounded
+		logger_config [label=logger_config color="#1E88E5" fillcolor="#BBDEFB" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip=logger_config]
+	}
+	subgraph cluster_loguru {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=loguru style=rounded
+		loguru_logger [label="loguru.logger" color="#FB8C00" fillcolor="#FFE0B2" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip="loguru.logger"]
+	}
+	subgraph cluster_os {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=os style=rounded
+		os [label=os color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip=os]
+	}
+	subgraph cluster_pathlib {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=pathlib style=rounded
+		pathlib_Path [label="pathlib.Path" color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip="pathlib.Path"]
+	}
+	subgraph cluster_pyspark {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=pyspark style=rounded
+		pyspark_sql_functions [label="pyspark.sql.functions" color="#FB8C00" fillcolor="#FFE0B2" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip="pyspark.sql.functions"]
+		pyspark_sql_SparkSession [label="pyspark.sql.SparkSession" color="#FB8C00" fillcolor="#FFE0B2" fontcolor="#000000" fontsize=10 style="filled,rounded" tooltip="pyspark.sql.SparkSession"]
+	}
+	subgraph cluster_sys {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=sys style=rounded
+		sys [label=sys color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip=sys]
+	}
+	subgraph cluster_time {
+		color="#D0D0D0" fontname=Helvetica fontsize=12 label=time style=rounded
+		time [label=time color="#6D6D6D" fillcolor="#EEEEEE" fontcolor="#333333" fontsize=9 style="filled,rounded" tooltip=time]
+	}
+	demoApp -> datetime_date [color="#708090" penwidth=1.5]
+	demoApp -> pyspark_sql_functions [color="#708090" penwidth=1.5]
+	demoApp -> time [color="#708090" penwidth=1.5]
+	demoApp -> argparse [color="#708090" penwidth=1.5]
+	demoApp -> launcher [color="#708090" penwidth=1.5]
+	demoApp -> logger_config [color="#708090" penwidth=1.5]
+	example -> logger_config [color="#708090" penwidth=1.5]
+	example -> pyspark_sql_functions [color="#708090" penwidth=1.5]
+	example -> time [color="#708090" penwidth=1.5]
+	launcher -> loguru_logger [color="#708090" penwidth=1.5]
+	launcher -> pathlib_Path [color="#708090" penwidth=1.5]
+	launcher -> databricks_connect_DatabricksSession [color="#708090" penwidth=1.5]
+	launcher -> json [color="#708090" penwidth=1.5]
+	launcher -> time [color="#708090" penwidth=1.5]
+	launcher -> pyspark_sql_SparkSession [color="#708090" penwidth=1.5]
+	launcher -> os [color="#708090" penwidth=1.5]
+	launcher -> logger_config [color="#708090" penwidth=1.5]
+	logger_config -> loguru_logger [color="#708090" penwidth=1.5]
+	logger_config -> pathlib_Path [color="#708090" penwidth=1.5]
+	logger_config -> sys [color="#708090" penwidth=1.5]
+	logger_config -> functools [color="#708090" penwidth=1.5]
+	logger_config -> time [color="#708090" penwidth=1.5]
+	fontcolor="#333333" fontname=Helvetica fontsize=16 label="Dependency Graph • 17 modules" labelloc=t
+	subgraph cluster_legend {
+		color="#B0B0B0" fontname=Helvetica fontsize=12 label=Legend style=rounded
+		legend_local [label=Local color="#1E88E5" fillcolor="#BBDEFB" shape=box style="filled,rounded"]
+		legend_third [label="Third-party" color="#FB8C00" fillcolor="#FFE0B2" shape=box style="filled,rounded"]
+		legend_std [label=Stdlib color="#6D6D6D" fillcolor="#EEEEEE" shape=box style="filled,rounded"]
+		legend_cycle [label="In Cycle" color="#7F0000" fillcolor="#F97068" fontcolor="#FFFFFF" shape=box style="filled,rounded,bold"]
+		rank=same
+		legend_local -> legend_third
+		legend_third -> legend_std
+		legend_std -> legend_cycle
+	}
+}

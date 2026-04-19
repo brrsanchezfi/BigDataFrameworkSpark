@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "DKOps"
+version = "0.1.0"
+description = "Lakehouse automation framework for DataOps, DevOps, QA, and Medallion architecture on Databricks"
+readme = "README.md"
+authors = [
+    { name = "Roberto" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+
+dependencies = [
+    "pyspark>=3.4.0",
+    "delta-spark>=2.4.0",
+    "pydantic>=2.0",
+    "loguru",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "ruff",
+    "mypy"
+]
+
+[project.urls]
+Homepage = "https://github.com/tuusuario/knowrix"
+Documentation = "https://github.com/tuusuario/knowrix"
+Repository = "https://github.com/tuusuario/knowrix"
+
+[tool.setuptools]
+package-dir = {"" = "DKOps"}
+
+[tool.setuptools.packages.find]
+where = ["DKOps"]
+
+---
+
+# 🔧 Configuración de herramientas
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
