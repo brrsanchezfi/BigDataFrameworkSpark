@@ -1,3 +1,7 @@
 .venv-databricks/
 .venv-local/
 
+
+.databricks
+
+/config/config.json

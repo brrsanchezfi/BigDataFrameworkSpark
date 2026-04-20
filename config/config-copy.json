@@ -1,0 +1,62 @@
+{
+  "_comentario": "Ejemplo de config.json para Launcher. Eliminar campos _comentario* antes de usar en producción.",
+
+  "EXECUTION_ENVIRONMENT": "databricks",
+
+  "_comentario_spark_local": "Campos usados cuando EXECUTION_ENVIRONMENT=local",
+  "SPARK_APP_NAME": "Framework",
+  "SPARK_WAREHOUSE_DIR": "/tmp/spark-warehouse",
+
+  "_comentario_databricks": "Campos usados cuando EXECUTION_ENVIRONMENT=databricks",
+  "CLUSTER_ID": "xxxx-xxxxx-xxxxxxx",
+
+  "_comentario_auth_pat": "Método 1: Personal Access Token. Si defines DATABRICKS_TOKEN aquí o como variable de entorno, se usa PAT.",
+  "DATABRICKS_HOST": "https://adb-xxxxxxxxxxxx.xx.azuredatabricks.net",
+  "DATABRICKS_TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+
+  "_comentario_auth_login": "Método 2: OAuth/CLI. Si DATABRICKS_TOKEN está vacío, se usa `databricks auth login`. Puedes indicar un profile.",
+  "DATABRICKS_PROFILE": "DEFAULT",
+
+  "_comentario_logs": "Configuración del logger (todos opcionales)",
+  "LOG_LEVEL": "INFO",
+  "LOG_DIR": "/tmp/logs",
+  "LOG_FILENAME": "launcher.log",
+  "LOG_ROTATION": "10 MB",
+  "LOG_RETENTION": "7 days",
+  "LOG_SERIALIZE": false,
+
+
+
+  "environments": {
+    "2370424844216896": {
+      "env": "dev",
+      "env_short": "d",
+      "workspace_host": "https://adb-xxxxxxxxxxxx.xx.azuredatabricks.net",
+      "catalogs": {
+        "bronze": "ct_bronze_dlanaliticadev",
+        "silver": "ct_silver_dlanaliticadev",
+        "gold":   "ct_gold_dlanaliticadev"
+      },
+      "storage_accounts": {
+        "default": "dlanaliticadev",
+        "raw":     "dlanaliticadevraw"
+      },
+      "paths": {
+        "raw":     "abfss://raw@dlanaliticadev.dfs.core.windows.net",
+        "curated": "abfss://curated@dlanaliticadev.dfs.core.windows.net",
+        "archive": "abfss://archive@dlanaliticadev.dfs.core.windows.net"
+      },
+      "secrets": { "scope": "kv-dev" },
+      "tags": {
+        "environment": "dev",
+        "cost_center": "CC-1001",
+        "team": "data-engineering"
+      }
+    },
+    "7042033821150253": {
+      "env": "prod",
+      "env_short": "p",
+      "..."  : "..."
+    }
+  }
+}

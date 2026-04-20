@@ -30,17 +30,16 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tuusuario/knowrix"
-Documentation = "https://github.com/tuusuario/knowrix"
-Repository = "https://github.com/tuusuario/knowrix"
+Homepage = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
+Documentation = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
+Repository = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
 
 [tool.setuptools]
-package-dir = {"" = "DKOps"}
+package-dir = {"" = "src/"}
 
 [tool.setuptools.packages.find]
-where = ["DKOps"]
+where = ["src/"]
 
----
 
 # 🔧 Configuración de herramientas
 

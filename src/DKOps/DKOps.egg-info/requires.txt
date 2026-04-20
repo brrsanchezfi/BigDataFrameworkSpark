@@ -1,0 +1,11 @@
+pyspark>=3.4.0
+delta-spark>=2.4.0
+pydantic>=2.0
+loguru
+
+[dev]
+pytest
+pytest-cov
+black
+ruff
+mypy

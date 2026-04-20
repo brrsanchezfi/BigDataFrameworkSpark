@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: DKOps
+Version: 0.1.0
+Summary: Lakehouse automation framework for DataOps, DevOps, QA, and Medallion architecture on Databricks
+Author: Roberto
+License: MIT
+Project-URL: Homepage, https://github.com/brrsanchezfi/BigDataFrameworkSpark
+Project-URL: Documentation, https://github.com/brrsanchezfi/BigDataFrameworkSpark
+Project-URL: Repository, https://github.com/brrsanchezfi/BigDataFrameworkSpark
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyspark>=3.4.0
+Requires-Dist: delta-spark>=2.4.0
+Requires-Dist: pydantic>=2.0
+Requires-Dist: loguru
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Dynamic: license-file
+
+# BigDataFrameworkSpark
+Desarrollo Framework spark

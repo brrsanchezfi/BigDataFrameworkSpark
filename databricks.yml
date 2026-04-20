@@ -1,0 +1,76 @@
+bundle:
+  name: proyecto_aeronautica
+
+targets:
+
+  dev:
+    workspace:
+      host: https://adb-2370424844216896.azuredatabricks.net
+    variables:
+      env:   dev
+      env_short: d
+      catalogs:
+        bronze: ct_bronze_dlsuraanaliticadev
+        silver: ct_silver_dlsuraanaliticadev
+        gold:   ct_gold_dlsuraanaliticadev
+      storage_accounts:
+        default: dlsuraanaliticadev
+        raw:     dlsuraanaliticadevraw
+      paths:
+        raw:     abfss://raw@dlsuraanaliticadev.dfs.core.windows.net
+        curated: abfss://curated@dlsuraanaliticadev.dfs.core.windows.net
+        archive: abfss://archive@dlsuraanaliticadev.dfs.core.windows.net
+      secrets:
+        scope: kv-dev
+      tags:
+        environment: dev
+        cost_center: "CC-1001"
+        team: data-engineering
+
+  qa:
+    workspace:
+      host: https://adb-9999999999999999.azuredatabricks.net
+    variables:
+      env:   qa
+      env_short: q
+      catalogs:
+        bronze: ct_bronze_dlsuraanaliticaqa
+        silver: ct_silver_dlsuraanaliticaqa
+        gold:   ct_gold_dlsuraanaliticaqa
+      storage_accounts:
+        default: dlsuraanaliticaqa
+        raw:     dlsuraanaliticaqaraw
+      paths:
+        raw:     abfss://raw@dlsuraanaliticaqa.dfs.core.windows.net
+        curated: abfss://curated@dlsuraanaliticaqa.dfs.core.windows.net
+        archive: abfss://archive@dlsuraanaliticaqa.dfs.core.windows.net
+      secrets:
+        scope: kv-qa
+      tags:
+        environment: qa
+        cost_center: "CC-1002"
+        team: data-engineering
+
+  prod:
+    workspace:
+      host: https://adb-7042033821150253.azuredatabricks.net
+    variables:
+      env:   prod
+      env_short: p
+      catalogs:
+        bronze: ct_bronze_dlsuraanalitica
+        silver: ct_silver_dlsuraanalitica
+        gold:   ct_gold_dlsuraanalitica
+      storage_accounts:
+        default: dlsuraanaliticaprod
+        raw:     dlsuraanaliticaprodraw
+      paths:
+        raw:     abfss://raw@dlsuraanaliticaprod.dfs.core.windows.net
+        curated: abfss://curated@dlsuraanaliticaprod.dfs.core.windows.net
+        archive: abfss://archive@dlsuraanaliticaprod.dfs.core.windows.net
+      secrets:
+        scope: kv-prod
+      tags:
+        environment: prod
+        cost_center: "CC-1003"
+        team: data-engineering
