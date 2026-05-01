@@ -63,7 +63,7 @@ class FlightDelayApp(LoggableMixin):
         self.log_read_ok("create_data", rows=df.count(), source="datos en memoria")
         return df
 
-    @log_operation("filtrar vuelos retrasados (>0 min)")
+    @log_operation("filtrar vuelos dd (>0 min)")
     def filter_delayed(self, df):
         rows_in = df.count()
         t0 = time.perf_counter()

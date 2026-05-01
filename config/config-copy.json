@@ -1,62 +1,113 @@
 {
-  "_comentario": "Ejemplo de config.json para Launcher. Eliminar campos _comentario* antes de usar en producción.",
+  // ─────────────────────────────────────────────────────────────────
+  // config.json — Configuración principal del Launcher
+  // ADVERTENCIA: Eliminar tokens reales antes de subir a repositorios.
+  // Los campos _note_* son solo documentación; el Launcher los ignora.
+  // ─────────────────────────────────────────────────────────────────
 
+  // ── Entorno de ejecución ──────────────────────────────────────────
+  // Valores válidos: "databricks" | "local"
+  // En "databricks" se usa DatabricksSession (Databricks Connect).
+  // En "local"      se levanta SparkSession estándar.
   "EXECUTION_ENVIRONMENT": "databricks",
 
-  "_comentario_spark_local": "Campos usados cuando EXECUTION_ENVIRONMENT=local",
-  "SPARK_APP_NAME": "Framework",
+  // ── Spark local (solo cuando EXECUTION_ENVIRONMENT = "local") ────
+  "SPARK_APP_NAME":      "FlujoDiario",
   "SPARK_WAREHOUSE_DIR": "/tmp/spark-warehouse",
 
-  "_comentario_databricks": "Campos usados cuando EXECUTION_ENVIRONMENT=databricks",
-  "CLUSTER_ID": "xxxx-xxxxx-xxxxxxx",
+  // ── Databricks Connect (solo cuando EXECUTION_ENVIRONMENT = "databricks") ─
+  // CLUSTER_ID: ID del cluster interactivo al que se conectará.
+  //   Encuéntralo en: Compute → tu cluster → Tags → ClusterId
+  "CLUSTER_ID": "0405-181044-j4dmpswy",
 
-  "_comentario_auth_pat": "Método 1: Personal Access Token. Si defines DATABRICKS_TOKEN aquí o como variable de entorno, se usa PAT.",
-  "DATABRICKS_HOST": "https://adb-xxxxxxxxxxxx.xx.azuredatabricks.net",
-  "DATABRICKS_TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  // ── Autenticación — Método 1: Personal Access Token (PAT) ────────
+  // Si DATABRICKS_TOKEN tiene valor, el Launcher usa PAT automáticamente.
+  // Genera el token en: Settings → Developer → Access tokens
+  "DATABRICKS_HOST":  "https://adb-xxxxxxxxxxxxxxxx.xx.azuredatabricks.net",
+  "DATABRICKS_TOKEN": "dapi************************************",
 
-  "_comentario_auth_login": "Método 2: OAuth/CLI. Si DATABRICKS_TOKEN está vacío, se usa `databricks auth login`. Puedes indicar un profile.",
+  // ── Autenticación — Método 2: OAuth / Databricks CLI ─────────────
+  // Si DATABRICKS_TOKEN está vacío o ausente, el Launcher hace fallback
+  // a "databricks auth login". DATABRICKS_PROFILE indica el perfil CLI.
+  // Configura el CLI con: databricks configure --profile DEFAULT
   "DATABRICKS_PROFILE": "DEFAULT",
 
-  "_comentario_logs": "Configuración del logger (todos opcionales)",
-  "LOG_LEVEL": "INFO",
-  "LOG_DIR": "/tmp/logs",
+  // ── Ambiente lógico (solo en ejecución local) ─────────────────────
+  // En Databricks el ambiente se detecta automáticamente por workspace_id.
+  // En local, si no está seteada la env var DATABRICKS_TARGET, se usa este campo.
+  // Valores válidos: "dev" | "prod"
+  "DATABRICKS_TARGET": "dev",
+
+  // ── Logger ────────────────────────────────────────────────────────
+  // Todos los campos son opcionales; los valores mostrados son los defaults.
+  // LOG_LEVEL:    "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"
+  // LOG_ROTATION: tamaño máximo antes de rotar  (ej. "10 MB", "50 MB")
+  // LOG_RETENTION: tiempo que se guardan los archivos rotados
+  "LOG_LEVEL":     "INFO",
+  "LOG_DIR":      "/tmp/logs",
   "LOG_FILENAME": "launcher.log",
   "LOG_ROTATION": "10 MB",
-  "LOG_RETENTION": "7 days",
+  "LOG_RETENTION":"7 days",
   "LOG_SERIALIZE": false,
 
-
-
+  // ── Ambientes por workspace_id ────────────────────────────────────
+  // El Launcher detecta el workspace_id en tiempo de ejecución y busca
+  // la clave correspondiente aquí para cargar catalogs, paths y secrets.
+  // Agrega tantos ambientes como workspaces tengas (staging, qa, etc.).
   "environments": {
+
+    // ── DEV ───────────────────────────────────────────────────────────
     "2370424844216896": {
-      "env": "dev",
-      "env_short": "d",
-      "workspace_host": "https://adb-xxxxxxxxxxxx.xx.azuredatabricks.net",
+      "env":            "dev",
+      "env_short":      "d",
+      "workspace_host": "https://adb-2370424844216896.xx.azuredatabricks.net",
       "catalogs": {
-        "bronze": "ct_bronze_dlanaliticadev",
-        "silver": "ct_silver_dlanaliticadev",
-        "gold":   "ct_gold_dlanaliticadev"
+        "bronze": "ct_bronze_dlsuraanaliticadev",
+        "silver": "ct_silver_dlsuraanaliticadev",
+        "gold":   "ct_gold_dlsuraanaliticadev"
       },
       "storage_accounts": {
-        "default": "dlanaliticadev",
-        "raw":     "dlanaliticadevraw"
+        "default": "dlsuraanaliticadev",
+        "raw":     "dlsuraanaliticadevraw"
       },
       "paths": {
-        "raw":     "abfss://raw@dlanaliticadev.dfs.core.windows.net",
-        "curated": "abfss://curated@dlanaliticadev.dfs.core.windows.net",
-        "archive": "abfss://archive@dlanaliticadev.dfs.core.windows.net"
+        "raw":     "abfss://raw@dlsuraanaliticadev.dfs.core.windows.net",
+        "curated": "abfss://curated@dlsuraanaliticadev.dfs.core.windows.net",
+        "archive": "abfss://archive@dlsuraanaliticadev.dfs.core.windows.net"
       },
       "secrets": { "scope": "kv-dev" },
       "tags": {
         "environment": "dev",
         "cost_center": "CC-1001",
-        "team": "data-engineering"
+        "team":        "data-engineering"
       }
     },
+
+    // ── PROD ──────────────────────────────────────────────────────────
     "7042033821150253": {
-      "env": "prod",
-      "env_short": "p",
-      "..."  : "..."
+      "env":            "prod",
+      "env_short":      "p",
+      "workspace_host": "https://adb-7042033821150253.xx.azuredatabricks.net",
+      "catalogs": {
+        "bronze": "ct_bronze_dlsuraanaliticaprod",
+        "silver": "ct_silver_dlsuraanaliticaprod",
+        "gold":   "ct_gold_dlsuraanaliticaprod"
+      },
+      "storage_accounts": {
+        "default": "dlsuraanaliticaprod",
+        "raw":     "dlsuraanaliticaprodraw"
+      },
+      "paths": {
+        "raw":     "abfss://raw@dlsuraanaliticaprod.dfs.core.windows.net",
+        "curated": "abfss://curated@dlsuraanaliticaprod.dfs.core.windows.net",
+        "archive": "abfss://archive@dlsuraanaliticaprod.dfs.core.windows.net"
+      },
+      "secrets": { "scope": "kv-prod" },
+      "tags": {
+        "environment": "prod",
+        "cost_center": "CC-2001",
+        "team":        "data-engineering"
+      }
     }
   }
 }

@@ -92,6 +92,7 @@ class EnvironmentConfig(LoggableMixin):
     ) -> None:
         self._is_databricks = is_databricks
         self._environments  = config.get("environments", {})
+        self._config        = config
 
         if not self._environments:
             raise ValueError(
@@ -166,10 +167,18 @@ class EnvironmentConfig(LoggableMixin):
 
     def _resolve_by_env_var(self) -> tuple[str, dict] | None:
         """
-        En local: busca DATABRICKS_TARGET (ej: "dev") y lo contrasta
-        con el campo "env" de cada entrada en environments.
+        Resuelve el ambiente por nombre (ej: "dev") usando la siguiente cascada:
+        1. Variable de entorno del sistema: export DATABRICKS_TARGET=dev
+        2. Clave "DATABRICKS_TARGET" en config.json
+
+        El valor encontrado se contrasta con el campo "env" o "env_short"
+        de cada entrada en 'environments' hasta encontrar coincidencia.
         """
-        target = os.environ.get(_ENV_VAR_TARGET, "").strip()
+
+        target = (
+            os.environ.get(_ENV_VAR_TARGET, "").strip()
+            or self._config.get(_ENV_VAR_TARGET, "").strip()
+        )
         if not target:
             return None
 

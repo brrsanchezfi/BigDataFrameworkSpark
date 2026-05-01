@@ -78,20 +78,6 @@
       "principal": "data-engineers",
       "operation": "GRANT"
     }
-  ],
-  "alterations": [
-    {
-      "type": "ADD_COLUMN",
-      "name": "tiempo_vuelo_min",
-      "comment": "Duración real del vuelo en minutos",
-      "type_col": "INTEGER"
-    },
-    {
-      "type": "SET_TBLPROPERTIES",
-      "properties": {
-        "delta.columnMapping.mode": "name",
-        "quality": "bronze"
-      }
-    }
   ]
+
 }

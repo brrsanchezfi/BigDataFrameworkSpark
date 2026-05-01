@@ -14,8 +14,8 @@ Campos relevantes de config.json
 ---------------------------------
     "EXECUTION_ENVIRONMENT": "local" | "databricks"
 
-    // Spark local
-    "SPARK_APP_NAME"      : "FlujoDiario"
+    // Spark local - DKOps como name por defecto
+    "SPARK_APP_NAME"      : "DKOps"
     "SPARK_WAREHOUSE_DIR" : "/tmp/spark-warehouse"
 
     // Databricks remoto
@@ -141,7 +141,7 @@ class Launcher(LoggableMixin):
         from pyspark.sql import SparkSession
 
         warehouse_dir = self.config.get("SPARK_WAREHOUSE_DIR", DEFAULT_WAREHOUSE_DIR)
-        app_name      = self.config.get("SPARK_APP_NAME", "FlujoDiario")
+        app_name      = self.config.get("SPARK_APP_NAME", "DKOps")
 
         Path(warehouse_dir).mkdir(parents=True, exist_ok=True)
         self.log.debug(f"warehouse_dir='{warehouse_dir}' | app='{app_name}'")
@@ -165,8 +165,8 @@ class Launcher(LoggableMixin):
             from databricks.connect import DatabricksSession
         except ImportError as exc:
             raise ImportError(
-                "El paquete 'databricks-connect' no está instalado.\n"
-                "  Ejecuta: pip install databricks-connect"
+                f"No se pudo importar 'databricks-connect'. Causa: {exc}\n"
+                "Verifica que las dependencias estén instaladas: pip install databricks-connect zstandard"
             ) from exc
 
         cluster_id = self.config.get("CLUSTER_ID", "")
@@ -232,6 +232,11 @@ class Launcher(LoggableMixin):
         os.environ["DATABRICKS_TOKEN"] = token
 
         spark = DatabricksSession.builder.clusterId(cluster_id).getOrCreate()
+
+        app_name = self.config.get("SPARK_APP_NAME", "DKOps")
+        spark.conf.set("spark.app.name", app_name)
+        spark.conf.set("spark.databricks.app.name", app_name)
+
         self.log.debug("Conexión PAT establecida ✔")
         return spark
 
@@ -253,5 +258,10 @@ class Launcher(LoggableMixin):
             self.log.debug(f"DATABRICKS_CONFIG_PROFILE='{profile}'")
 
         spark = DatabricksSession.builder.clusterId(cluster_id).getOrCreate()
+
+        app_name = self.config.get("SPARK_APP_NAME", "DKOps")
+        spark.conf.set("spark.app.name", app_name)
+        spark.conf.set("spark.databricks.app.name", app_name)
+
         self.log.debug("Conexión OAuth/CLI establecida ✔")
         return spark

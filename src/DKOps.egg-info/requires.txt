@@ -1,7 +1,8 @@
-pyspark>=3.4.0
-delta-spark>=2.4.0
 pydantic>=2.0
 loguru
+
+[databricks]
+databricks-connect>=13.0
 
 [dev]
 pytest
@@ -9,3 +10,7 @@ pytest-cov
 black
 ruff
 mypy
+
+[local]
+pyspark>=3.4.0
+delta-spark>=2.4.0
