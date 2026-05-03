@@ -13,51 +13,73 @@ authors = [
 license = { text = "MIT" }
 requires-python = ">=3.9"
 
+# Dependencias base — solo lo que el framework necesita siempre.
+# PySpark y Delta NO van aquí porque en Databricks ya están instalados
+# nativamente y agregarlos causaría conflictos en el cluster.
 dependencies = [
-    "pydantic>=2.0",
-    "loguru",
+    "loguru>=0.7.0",
 ]
 
 [project.optional-dependencies]
-databricks = [
-    "databricks-connect>=13.0",
-]
+
+# Instalar en PC local para desarrollo y pruebas
+# pip install "DKOps[local]"
 local = [
-    "pyspark>=3.4.0",
-    "delta-spark>=2.4.0",
+    "pyspark==3.5.3",
+    "delta-spark==3.2.0",
 ]
+
+# Instalar en PC local para conectar a un cluster remoto via Databricks Connect
+# La versión debe coincidir con el DBR del cluster:
+#   DBR 14.x → databricks-connect==14.x
+#   DBR 15.x → databricks-connect==15.x
+# pip install "DKOps[databricks-connect]"
+databricks-connect = [
+    "databricks-connect>=14.0,<16.0",
+    "zstandard>=0.21.0",
+]
+
+# Herramientas de desarrollo
+# pip install "DKOps[dev]"
 dev = [
-    "pytest",
-    "pytest-cov",
-    "black",
-    "ruff",
-    "mypy"
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0",
 ]
+
+# Todo junto para desarrollo local completo
+# pip install "DKOps[local,dev]"
 
 [project.urls]
-Homepage = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
+Homepage      = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
 Documentation = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
-Repository = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
+Repository    = "https://github.com/brrsanchezfi/BigDataFrameworkSpark"
 
 [tool.setuptools]
-package-dir = {"" = "src/"}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["src/"]
+where = ["src"]
 
-
-# 🔧 Configuración de herramientas
+# ── Herramientas ──────────────────────────────────────────────────────────────
 
 [tool.black]
 line-length = 88
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = ["E", "F", "I"]
+ignore = [
+    "E501",  # line too long — black lo maneja
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.9"
-strict = true
+strict         = true

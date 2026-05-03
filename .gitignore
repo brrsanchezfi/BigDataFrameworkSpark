@@ -5,3 +5,12 @@
 .databricks
 
 /config/config.json
+.tables/
+
+dist/
+build/
+.vscode
+metastore_db
+
+
+*.log

@@ -10,19 +10,19 @@ Project-URL: Repository, https://github.com/brrsanchezfi/BigDataFrameworkSpark
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pydantic>=2.0
-Requires-Dist: loguru
-Provides-Extra: databricks
-Requires-Dist: databricks-connect>=13.0; extra == "databricks"
+Requires-Dist: loguru>=0.7.0
 Provides-Extra: local
-Requires-Dist: pyspark>=3.4.0; extra == "local"
-Requires-Dist: delta-spark>=2.4.0; extra == "local"
+Requires-Dist: pyspark==3.5.3; extra == "local"
+Requires-Dist: delta-spark==3.2.0; extra == "local"
+Provides-Extra: databricks-connect
+Requires-Dist: databricks-connect<16.0,>=14.0; extra == "databricks-connect"
+Requires-Dist: zstandard>=0.21.0; extra == "databricks-connect"
 Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+Requires-Dist: black>=23.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.0; extra == "dev"
 Dynamic: license-file
 
 # BigDataFrameworkSpark

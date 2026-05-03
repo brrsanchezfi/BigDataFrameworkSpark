@@ -1,16 +1,16 @@
-pydantic>=2.0
-loguru
+loguru>=0.7.0
 
-[databricks]
-databricks-connect>=13.0
+[databricks-connect]
+databricks-connect<16.0,>=14.0
+zstandard>=0.21.0
 
 [dev]
-pytest
-pytest-cov
-black
-ruff
-mypy
+pytest>=7.0
+pytest-cov>=4.0
+black>=23.0
+ruff>=0.1.0
+mypy>=1.0
 
 [local]
-pyspark>=3.4.0
-delta-spark>=2.4.0
+pyspark==3.5.3
+delta-spark==3.2.0
