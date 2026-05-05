@@ -1,0 +1,18 @@
+site_name: DKOps
+theme:
+  name: material
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+
+nav:
+  - Home: index.md
+  - Contracts:
+    - loader: api/contracts/loader.md
+    - validator: api/contracts/validator.md
+  - Writers:
+    - base: api/writers/base.md
+    - create: api/writers/create.md
