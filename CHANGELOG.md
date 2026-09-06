@@ -6,6 +6,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 
 ---
 
+## [0.3.5] — 2026-09-06
+
+### Fixed
+
+- **El log en almacenamiento cloud podía quedar a 0 bytes (#30).** El handler de `dbutils.fs.put` acumulaba el contenido completo en memoria y **reescribía el fichero entero** con `overwrite=True` en cada sincronización. Ese `put` trunca el destino antes de volcar y devuelve el control —imprimiendo `Wrote N bytes.`— antes de que el blob esté confirmado, así que un proceso que muriera dentro de esa ventana no perdía el último tramo: perdía **todo el histórico**. Intermitente por naturaleza: de 13 ficheros de log de un proyecto, 5 quedaron vacíos
+- El sink del puente JVM tenía un `except Exception: pass` que descartaba en silencio los errores de escritura. Ahora los cuenta y los reporta (#30)
+
+### Changed
+
+- **La escritura cloud pasa a hacerse por tramos.** Cada sincronización escribe solo el contenido nuevo en un objeto propio —`<nombre>.<run>.0001.log`, `.0002.log`…— que no se vuelve a tocar nunca. No asume nada del almacenamiento: ni escritura atómica, ni renombrado atómico, que en ADLS solo lo es con espacio de nombres jerárquico. Un fallo pierde como mucho el último tramo (#30)
+- El token de ejecución en el nombre evita además que dos procesos que escriban el mismo log se sobrescriban (#30)
+- Un tramo que falla **vuelve a la cola y se reintenta** en la sincronización siguiente, en lugar de perderse (#30)
+- Los fallos de escritura se reportan por **`stdout`**, no `stderr`: es lo que Databricks captura y lo que sigue vivo durante el apagado del intérprete. Al terminar se distingue entre un log realmente incompleto y uno que tuvo fallos pero los recuperó (#30)
+
+### Added
+
+- **`AppLogger.flush()`** — vuelca lo pendiente con el proceso todavía vivo. El volcado por `atexit` sigue existiendo, pero en el apagado un fallo ya no tiene quién lo recoja (#30)
+- **`AppLogger.read_cloud_log()`** — reconstruye un log escrito por tramos, concatenándolo en orden. Admite filtrar por ejecución (#30)
+- `tests/test_cloud_log_handler.py` — 10 tests con un `dbutils` falso que registra cada escritura, para poder aseverar que **ningún objeto se toca dos veces**. No existía ninguna prueba de este handler
+
+### Notes
+
+- El volcado del apagado ya no reescribe nada si no hay contenido nuevo. En el caso reportado, la tarea afectada tenía su último mensaje justo en un múltiplo de la frecuencia de sincronización, de modo que el `atexit` repetía un `put` completo redundante en el momento de mayor riesgo (#30)
+- Los tramos de ejecuciones anteriores no se ven afectados: el formato nuevo convive con los ficheros que ya hubiera en el directorio
+
+---
+
 ## [0.3.4] — 2026-09-01
 
 ### Fixed

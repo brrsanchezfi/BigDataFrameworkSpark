@@ -182,7 +182,7 @@ pip install -e ".[databricks-connect]"
 Para instalar una version publicada directamente desde un tag:
 
 ```bash
-pip install "DKOps @ git+https://github.com/brrsanchezfi/DKOps.git@v0.3.4"
+pip install "DKOps @ git+https://github.com/brrsanchezfi/DKOps.git@v0.3.5"
 ```
 
 > **Nombre del paquete.** La distribucion se llama `DKOps` y el modulo
