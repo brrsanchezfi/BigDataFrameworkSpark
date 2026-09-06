@@ -237,12 +237,36 @@ class AppLogger:
 
             out_stream = fs.append(cloud_path) if fs.exists(cloud_path) else fs.create(cloud_path)
 
+            _jvm_fallos = [0]
+
             def _cloud_sink(message: str) -> None:
                 try:
                     out_stream.write(message.encode("utf-8"))
                     out_stream.flush()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # No se relanza —tumbar el proceso por no poder escribir un
+                    # log seria peor—, pero tampoco se traga: un fallo mudo aqui
+                    # produce confianza infundada en un registro incompleto.
+                    # stdout, no stderr: es lo que Databricks captura y lo que
+                    # sigue vivo durante el apagado del interprete (#30).
+                    _jvm_fallos[0] += 1
+                    if _jvm_fallos[0] <= 3:
+                        print(
+                            f"[DKOps] fallo al escribir el log cloud "
+                            f"({type(exc).__name__}: {exc})",
+                            file=sys.stdout, flush=True,
+                        )
+
+            def _avisar_fallos_jvm() -> None:
+                if _jvm_fallos[0]:
+                    print(
+                        f"[DKOps] AVISO: {_jvm_fallos[0]} mensajes no llegaron a "
+                        f"'{cloud_full_path}'. El log esta incompleto.",
+                        file=sys.stdout, flush=True,
+                    )
+
+            import atexit
+            atexit.register(_avisar_fallos_jvm)
 
             handler_id = logger.add(
                 _cloud_sink,
@@ -261,37 +285,97 @@ class AppLogger:
                 "probando escritura vía DBFS local..."
             )
 
-        # ── Intento 2: dbutils.fs.put con buffer en memoria ──────────────────────
+        # ── Intento 2: dbutils.fs.put en tramos ──────────────────────────────
         # dbutils.fs.put() funciona en TODOS los clusters Databricks (Shared,
         # Single User, Spark Connect, DBR 13+/14+) porque usa las credenciales
         # del cluster internamente sin necesitar JVM ni acceso local al filesystem.
-        # El buffer acumula el contenido completo y lo sobreescribe en cloud cada
-        # SYNC_EVERY mensajes y al finalizar el proceso (atexit).
-        # Los errores de sync se imprimen a stderr para no pasar desapercibidos.
+        #
+        # Cada sync escribe SOLO lo nuevo, en un objeto propio que no se vuelve a
+        # tocar nunca. Antes se acumulaba todo en memoria y se reescribia el
+        # fichero entero con overwrite=True en cada sync; como ese put trunca el
+        # destino antes de volcar y devuelve el control antes de confirmar el
+        # blob, un proceso que muriera dentro de esa ventana dejaba el fichero a
+        # 0 bytes — perdiendo no el ultimo tramo, sino todo el historico (#30).
+        #
+        # Escribir tramos nuevos no asume nada del almacenamiento: ni escritura
+        # atomica, ni renombrado atomico (que en ADLS solo lo es con espacio de
+        # nombres jerarquico). Un fallo pierde como mucho el ultimo tramo, y dos
+        # procesos con el mismo nombre de fichero ya no se pisan, porque cada
+        # ejecucion lleva su propio token.
         try:
+            import atexit
+            import uuid
+            from datetime import datetime, timezone
+
             _dbutils    = cls._get_dbutils(spark)
-            cloud_full_path = f"{log_dir.rstrip('/')}/{filename}"
-            _content    = [""]   # buffer acumulado completo
+            _base       = f"{log_dir.rstrip('/')}/{Path(filename).stem}"
+            _run        = (
+                datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                + "-" + uuid.uuid4().hex[:6]
+            )
+            cloud_full_path = f"{_base}.{_run}.*.log"
+
+            _pendiente  = [""]   # solo lo aun no escrito
             _msg_count  = [0]
+            _seq        = [0]
+            _fallos     = [0]
             _SYNC_EVERY = 5      # frecuencia de sync (cada 5 mensajes)
 
             def _sync_to_cloud() -> None:
-                if not _content[0]:
+                # Sin contenido nuevo no se escribe nada. Es lo que evita el
+                # put redundante del apagado, que era el momento de mas riesgo:
+                # ocurria con el interprete cerrandose y sin nadie recogiendo
+                # el error.
+                if not _pendiente[0]:
                     return
+
+                tramo, _pendiente[0] = _pendiente[0], ""
+                _seq[0] += 1
+                destino = f"{_base}.{_run}.{_seq[0]:04d}.log"
                 try:
-                    _dbutils.fs.put(cloud_full_path, _content[0], True)
-                except Exception as e:
-                    import sys
-                    print(f"[DKOps] sync cloud log falló: {e}", file=sys.stderr)
+                    _dbutils.fs.put(destino, tramo, True)
+                except Exception as exc:
+                    # El tramo vuelve a la cola: se reintenta en el sync
+                    # siguiente en vez de perderse.
+                    _pendiente[0] = tramo + _pendiente[0]
+                    _seq[0] -= 1
+                    _fallos[0] += 1
+                    if _fallos[0] <= 3:
+                        print(
+                            f"[DKOps] fallo al escribir el tramo de log "
+                            f"'{destino}' ({type(exc).__name__}: {exc})",
+                            file=sys.stdout, flush=True,
+                        )
+
+            def _cerrar() -> None:
+                _sync_to_cloud()
+                if _pendiente[0]:
+                    # Lo unico que de verdad deja el log incompleto.
+                    print(
+                        f"[DKOps] AVISO: el log de '{_base}.{_run}' quedo "
+                        f"INCOMPLETO: {len(_pendiente[0])} bytes no llegaron a "
+                        f"escribirse tras {_fallos[0]} intentos fallidos.",
+                        file=sys.stdout, flush=True,
+                    )
+                elif _fallos[0]:
+                    # Hubo fallos pero los reintentos los recuperaron. Se avisa
+                    # igualmente: el log esta completo, pero el almacenamiento
+                    # dio problemas y conviene saberlo.
+                    print(
+                        f"[DKOps] {_fallos[0]} escritura(s) de log fallaron y se "
+                        f"recuperaron en el reintento. El log de "
+                        f"'{_base}.{_run}' esta completo.",
+                        file=sys.stdout, flush=True,
+                    )
 
             def _dbutils_sink(message: str) -> None:
-                _content[0] += message
+                _pendiente[0] += message
                 _msg_count[0] += 1
                 if _msg_count[0] % _SYNC_EVERY == 0:
                     _sync_to_cloud()
 
-            import atexit
-            atexit.register(_sync_to_cloud)
+            atexit.register(_cerrar)
+            cls._flush_cloud = staticmethod(_sync_to_cloud)
 
             handler_id = logger.add(
                 _dbutils_sink,
@@ -300,8 +384,9 @@ class AppLogger:
                 format=cls._FMT_FILE if not cls._serialize else "{message}",
             )
             _log.success(
-                f"Logger cloud activo (dbutils.fs.put) | "
-                f"path='{cloud_full_path}' | sync cada {_SYNC_EVERY} mensajes"
+                f"Logger cloud activo (dbutils.fs.put, por tramos) | "
+                f"path='{cloud_full_path}' | sync cada {_SYNC_EVERY} mensajes | "
+                f"reconstruir con AppLogger.read_cloud_log()"
             )
             return handler_id
 
@@ -416,6 +501,87 @@ class AppLogger:
         logger.remove()
         cls._initialized    = False
         cls._file_handler_id = None
+        cls._flush_cloud    = None
+
+    # ── Log en cloud por tramos ───────────────────────────────────────────
+
+    _flush_cloud = None   # lo instala _add_cloud_handler si escribe por tramos
+
+    @classmethod
+    def flush(cls) -> None:
+        """
+        Vuelca a cloud lo que quede pendiente, con el proceso todavía vivo.
+
+        El volcado también ocurre solo al terminar (``atexit``), pero hacerlo
+        antes es más seguro: en el apagado del intérprete un fallo de escritura
+        ya no tiene quién lo recoja. Llámalo al final de un pipeline si quieres
+        garantizar que el log está completo antes de que la tarea acabe.
+
+            try:
+                engine.ingest_bronze()
+            finally:
+                AppLogger.flush()
+
+        No hace nada si el handler activo no es el de tramos —los demás
+        escriben en cada mensaje— ni si no hay contenido pendiente.
+        """
+        if cls._flush_cloud is not None:
+            cls._flush_cloud()
+
+    @staticmethod
+    def read_cloud_log(
+        spark:        Any,
+        log_dir:      str,
+        log_filename: str | None = None,
+        run:          str | None = None,
+    ) -> str:
+        """
+        Reconstruye un log escrito por tramos, concatenándolo en orden.
+
+        El handler cloud escribe un objeto por sincronización
+        (``<nombre>.<run>.0001.log``, ``.0002.log``…) en lugar de reescribir un
+        único fichero, para que un fallo puntual no se lleve el histórico
+        entero. Este helper deshace ese reparto.
+
+        Parámetros
+        ----------
+        spark        : SparkSession activa (para obtener dbutils).
+        log_dir      : mismo directorio que se pasó a ``add_file_handler``.
+        log_filename : nombre base sin extensión. Si se omite, devuelve todos
+                       los logs del directorio.
+        run          : token de una ejecución concreta. Si se omite, devuelve
+                       todas — separadas por una cabecera con su token.
+
+        Devuelve
+        --------
+        El contenido concatenado. Cadena vacía si no hay tramos.
+        """
+        _dbutils = AppLogger._get_dbutils(spark)
+        prefijo  = Path(log_filename).stem + "." if log_filename else ""
+
+        tramos = [
+            f for f in _dbutils.fs.ls(log_dir)
+            if f.name.endswith(".log")
+            and f.name.startswith(prefijo)
+            and (run is None or f".{run}." in f.name)
+        ]
+        if not tramos:
+            return ""
+
+        # El nombre ordena por ejecución y, dentro de ella, por secuencia:
+        # el número de tramo va con relleno de ceros justo para esto.
+        tramos.sort(key=lambda f: f.name)
+
+        partes: list[str] = []
+        run_actual = None
+        for tramo in tramos:
+            token = tramo.name.split(".")[-3] if tramo.name.count(".") >= 3 else ""
+            if run is None and token != run_actual:
+                run_actual = token
+                partes.append(f"\n===== ejecución {token} =====\n")
+            partes.append(_dbutils.fs.head(f"{log_dir.rstrip('/')}/{tramo.name}"))
+
+        return "".join(partes)
 
 
 # ---------------------------------------------------------------------------

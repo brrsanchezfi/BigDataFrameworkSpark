@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "DKOps"
-version = "0.3.4"
+version = "0.3.5"
 description = "Lakehouse automation framework — IngestionEngine, Medallion architecture and Delta governance for Spark and Databricks"
 readme = "README.md"
 authors = [

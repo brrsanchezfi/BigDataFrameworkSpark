@@ -17,7 +17,7 @@ pip install -e ".[databricks-connect]"
 O directamente desde un tag publicado:
 
 ```bash
-pip install "DKOps @ git+https://github.com/brrsanchezfi/DKOps.git@v0.3.4"
+pip install "DKOps @ git+https://github.com/brrsanchezfi/DKOps.git@v0.3.5"
 ```
 
 !!! warning "El import distingue mayúsculas"

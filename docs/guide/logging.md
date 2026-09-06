@@ -108,6 +108,64 @@ No hace falta inicializar nada: el `Launcher` llama a `AppLogger.setup()` y a
 `LOG_SERIALIZE: true` emite JSON por línea, útil si vas a ingerir los logs en
 una herramienta de observabilidad.
 
+### `LOG_DIR` en almacenamiento cloud
+
+Si apuntas `LOG_DIR` a `abfss://`, `gs://` o `s3://`, DKOps elige el mecanismo
+de escritura según lo que ofrezca el cluster. En Databricks con Spark Connect
+—donde no hay puente JVM— se escribe con `dbutils.fs.put` **en tramos**: cada
+sincronización crea un objeto nuevo en lugar de reescribir el fichero.
+
+```
+_logs/streaming/ingest_bronze.20260906T023042Z-a1b2c3.0001.log
+                ingest_bronze.20260906T023042Z-a1b2c3.0002.log
+                ingest_bronze.20260906T023042Z-a1b2c3.0003.log
+```
+
+El nombre lleva un token por ejecución y un número de tramo con relleno de
+ceros, así que **ordenar por nombre es ordenar cronológicamente**, y dos
+procesos que escriban el mismo log no se pisan.
+
+Para leerlo entero:
+
+```python
+from DKOps.logger_config import AppLogger
+
+texto = AppLogger.read_cloud_log(spark, log_dir, "ingest_bronze")
+print(texto)
+```
+
+Sin argumentos adicionales concatena todas las ejecuciones, separadas por una
+cabecera. Pasa `run="20260906T023042Z-a1b2c3"` para una concreta.
+
+!!! warning "Por qué en tramos y no un solo fichero"
+
+    Hasta la v0.3.4 cada sincronización reescribía el fichero completo con
+    `overwrite=True`. Ese `put` trunca el destino antes de volcar y devuelve el
+    control antes de que el blob esté confirmado: si el proceso moría dentro de
+    esa ventana, el fichero quedaba a **0 bytes** — y no se perdía el último
+    tramo, sino todo el histórico.
+
+    Escribir tramos nuevos no asume nada del almacenamiento: ni escritura
+    atómica, ni renombrado atómico (que en ADLS solo lo es con espacio de
+    nombres jerárquico). Un fallo pierde como mucho el último tramo.
+
+### Forzar el volcado antes de terminar
+
+El volcado ocurre solo al finalizar el proceso, pero en ese momento un fallo de
+escritura ya no tiene quién lo recoja. Si quieres asegurarte de que el log está
+completo mientras el proceso sigue vivo:
+
+```python
+try:
+    engine.ingest_bronze()
+    engine.promote_silver()
+finally:
+    AppLogger.flush()
+```
+
+No hace nada si el handler activo no escribe por tramos, ni si no hay contenido
+pendiente.
+
 !!! tip "Baja a DEBUG solo cuando lo necesites"
 
     Los writers registran en `DEBUG` el SQL que emiten —el `MERGE INTO`
