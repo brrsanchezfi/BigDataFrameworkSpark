@@ -690,6 +690,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#log_dir-en-almacenamiento-cloud" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LOG_DIR en almacenamiento cloud
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forzar-el-volcado-antes-de-terminar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forzar el volcado antes de terminar
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1930,6 +1952,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#log_dir-en-almacenamiento-cloud" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LOG_DIR en almacenamiento cloud
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forzar-el-volcado-antes-de-terminar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forzar el volcado antes de terminar
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2168,6 +2212,49 @@ excepción con su traza si el método lanza:</p>
 </code></pre></div>
 <p><code>LOG_SERIALIZE: true</code> emite JSON por línea, útil si vas a ingerir los logs en
 una herramienta de observabilidad.</p>
+<h3 id="log_dir-en-almacenamiento-cloud"><code>LOG_DIR</code> en almacenamiento cloud<a class="headerlink" href="#log_dir-en-almacenamiento-cloud" title="Permanent link">&para;</a></h3>
+<p>Si apuntas <code>LOG_DIR</code> a <code>abfss://</code>, <code>gs://</code> o <code>s3://</code>, DKOps elige el mecanismo
+de escritura según lo que ofrezca el cluster. En Databricks con Spark Connect
+—donde no hay puente JVM— se escribe con <code>dbutils.fs.put</code> <strong>en tramos</strong>: cada
+sincronización crea un objeto nuevo en lugar de reescribir el fichero.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>_logs/streaming/ingest_bronze.20260906T023042Z-a1b2c3.0001.log
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                ingest_bronze.20260906T023042Z-a1b2c3.0002.log
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                ingest_bronze.20260906T023042Z-a1b2c3.0003.log
+</code></pre></div>
+<p>El nombre lleva un token por ejecución y un número de tramo con relleno de
+ceros, así que <strong>ordenar por nombre es ordenar cronológicamente</strong>, y dos
+procesos que escriban el mismo log no se pisan.</p>
+<p>Para leerlo entero:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">DKOps.logger_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">AppLogger</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">texto</span> <span class="o">=</span> <span class="n">AppLogger</span><span class="o">.</span><span class="n">read_cloud_log</span><span class="p">(</span><span class="n">spark</span><span class="p">,</span> <span class="n">log_dir</span><span class="p">,</span> <span class="s2">"ingest_bronze"</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">texto</span><span class="p">)</span>
+</code></pre></div>
+<p>Sin argumentos adicionales concatena todas las ejecuciones, separadas por una
+cabecera. Pasa <code>run="20260906T023042Z-a1b2c3"</code> para una concreta.</p>
+<div class="admonition warning">
+<p class="admonition-title">Por qué en tramos y no un solo fichero</p>
+<p>Hasta la v0.3.4 cada sincronización reescribía el fichero completo con
+<code>overwrite=True</code>. Ese <code>put</code> trunca el destino antes de volcar y devuelve el
+control antes de que el blob esté confirmado: si el proceso moría dentro de
+esa ventana, el fichero quedaba a <strong>0 bytes</strong> — y no se perdía el último
+tramo, sino todo el histórico.</p>
+<p>Escribir tramos nuevos no asume nada del almacenamiento: ni escritura
+atómica, ni renombrado atómico (que en ADLS solo lo es con espacio de
+nombres jerárquico). Un fallo pierde como mucho el último tramo.</p>
+</div>
+<h3 id="forzar-el-volcado-antes-de-terminar">Forzar el volcado antes de terminar<a class="headerlink" href="#forzar-el-volcado-antes-de-terminar" title="Permanent link">&para;</a></h3>
+<p>El volcado ocurre solo al finalizar el proceso, pero en ese momento un fallo de
+escritura ya no tiene quién lo recoja. Si quieres asegurarte de que el log está
+completo mientras el proceso sigue vivo:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">engine</span><span class="o">.</span><span class="n">ingest_bronze</span><span class="p">()</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">engine</span><span class="o">.</span><span class="n">promote_silver</span><span class="p">()</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">AppLogger</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+</code></pre></div>
+<p>No hace nada si el handler activo no escribe por tramos, ni si no hay contenido
+pendiente.</p>
 <div class="admonition tip">
 <p class="admonition-title">Baja a DEBUG solo cuando lo necesites</p>
 <p>Los writers registran en <code>DEBUG</code> el SQL que emiten —el <code>MERGE INTO</code>
@@ -2180,12 +2267,12 @@ conviene mirar cuando una escritura no hace lo que esperabas.</p>
 logger de aplicación, <strong>esto persiste y se consulta con SQL</strong>.</p>
 <h3 id="activarlo">Activarlo<a class="headerlink" href="#activarlo" title="Permanent link">&para;</a></h3>
 <p>Basta con pasar <code>ops_path</code> al crear el engine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">IngestionEngine</span><span class="o">.</span><span class="n">from_launcher</span><span class="p">(</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">bronze_contracts_dir</span> <span class="o">=</span> <span class="s2">"ingestion/batch"</span><span class="p">,</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">silver_contracts_dir</span> <span class="o">=</span> <span class="s2">"ingestion/silver"</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">tables_base_dir</span>      <span class="o">=</span> <span class="s2">"."</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">ops_path</span>             <span class="o">=</span> <span class="s2">"/mnt/datalake/_ops/ingestas"</span><span class="p">,</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">IngestionEngine</span><span class="o">.</span><span class="n">from_launcher</span><span class="p">(</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">bronze_contracts_dir</span> <span class="o">=</span> <span class="s2">"ingestion/batch"</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">silver_contracts_dir</span> <span class="o">=</span> <span class="s2">"ingestion/silver"</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">tables_base_dir</span>      <span class="o">=</span> <span class="s2">"."</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">ops_path</span>             <span class="o">=</span> <span class="s2">"/mnt/datalake/_ops/ingestas"</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">)</span>
 </code></pre></div>
 <p>A partir de ahí, <code>ingest_bronze()</code> y <code>promote_silver()</code> registran solas cada
 dataset. No tienes que llamar a nada.</p>
@@ -2257,59 +2344,59 @@ contarás cada ejecución dos veces.</p>
 de una resta sobre la fila de cierre y no necesitas un self-join.</p>
 </div>
 <h3 id="consultarla">Consultarla<a class="headerlink" href="#consultarla" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">ops</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">ops</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">"started_at"</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="n">truncate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">ops</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">ops</span><span class="o">.</span><span class="n">orderBy</span><span class="p">(</span><span class="s2">"started_at"</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="n">truncate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 <p>O directamente con SQL. <strong>Tasa de éxito por dataset:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">dataset</span><span class="p">,</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">       </span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'SUCCESS'</span><span class="p">)</span><span class="w">                    </span><span class="k">AS</span><span class="w"> </span><span class="n">ok</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">       </span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'FAILED'</span><span class="p">)</span><span class="w">                     </span><span class="k">AS</span><span class="w"> </span><span class="n">ko</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">       </span><span class="n">round</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'SUCCESS'</span><span class="p">)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">             </span><span class="o">/</span><span class="w"> </span><span class="k">nullif</span><span class="p">(</span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">'STARTED'</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">pct_exito</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">FROM</span><span class="w">   </span><span class="n">ops</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="k">GROUP</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">dataset</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">ORDER</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">pct_exito</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">dataset</span><span class="p">,</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">       </span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'SUCCESS'</span><span class="p">)</span><span class="w">                    </span><span class="k">AS</span><span class="w"> </span><span class="n">ok</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">       </span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'FAILED'</span><span class="p">)</span><span class="w">                     </span><span class="k">AS</span><span class="w"> </span><span class="n">ko</span><span class="p">,</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">       </span><span class="n">round</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'SUCCESS'</span><span class="p">)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">             </span><span class="o">/</span><span class="w"> </span><span class="k">nullif</span><span class="p">(</span><span class="n">count_if</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">'STARTED'</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">pct_exito</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">FROM</span><span class="w">   </span><span class="n">ops</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="k">GROUP</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">dataset</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="k">ORDER</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">pct_exito</span>
 </code></pre></div>
 <p><strong>Duración media</strong>, que es donde se nota que la fila de cierre lleva su propio
 <code>started_at</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">dataset</span><span class="p">,</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">       </span><span class="n">round</span><span class="p">(</span><span class="k">avg</span><span class="p">(</span><span class="n">unix_timestamp</span><span class="p">(</span><span class="n">finished_at</span><span class="p">)</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">                 </span><span class="o">-</span><span class="w"> </span><span class="n">unix_timestamp</span><span class="p">(</span><span class="n">started_at</span><span class="p">)),</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">segundos</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">       </span><span class="k">sum</span><span class="p">(</span><span class="n">rows_written</span><span class="p">)</span><span class="w">                           </span><span class="k">AS</span><span class="w"> </span><span class="n">filas</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">FROM</span><span class="w">   </span><span class="n">ops</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="k">WHERE</span><span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'SUCCESS'</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="k">GROUP</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">dataset</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">dataset</span><span class="p">,</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">       </span><span class="n">round</span><span class="p">(</span><span class="k">avg</span><span class="p">(</span><span class="n">unix_timestamp</span><span class="p">(</span><span class="n">finished_at</span><span class="p">)</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">                 </span><span class="o">-</span><span class="w"> </span><span class="n">unix_timestamp</span><span class="p">(</span><span class="n">started_at</span><span class="p">)),</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">segundos</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">       </span><span class="k">sum</span><span class="p">(</span><span class="n">rows_written</span><span class="p">)</span><span class="w">                           </span><span class="k">AS</span><span class="w"> </span><span class="n">filas</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">FROM</span><span class="w">   </span><span class="n">ops</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">WHERE</span><span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'SUCCESS'</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">GROUP</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">dataset</span>
 </code></pre></div>
 <p><strong>Últimos fallos, con su causa:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">finished_at</span><span class="p">,</span><span class="w"> </span><span class="n">dataset</span><span class="p">,</span><span class="w"> </span><span class="n">notes</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">FROM</span><span class="w">   </span><span class="n">ops</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">WHERE</span><span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'FAILED'</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">ORDER</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">finished_at</span><span class="w"> </span><span class="k">DESC</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">LIMIT</span><span class="w">  </span><span class="mi">10</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">finished_at</span><span class="p">,</span><span class="w"> </span><span class="n">dataset</span><span class="p">,</span><span class="w"> </span><span class="n">notes</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">FROM</span><span class="w">   </span><span class="n">ops</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">WHERE</span><span class="w">  </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'FAILED'</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">ORDER</span><span class="w">  </span><span class="k">BY</span><span class="w"> </span><span class="n">finished_at</span><span class="w"> </span><span class="k">DESC</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">LIMIT</span><span class="w">  </span><span class="mi">10</span>
 </code></pre></div>
 <p><strong>Ejecuciones que nunca cerraron</strong> — abiertas sin <code>SUCCESS</code> ni <code>FAILED</code>. Suele
 significar que el proceso murió a mitad:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">run_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">dataset</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">started_at</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">FROM</span><span class="w">        </span><span class="n">ops</span><span class="w"> </span><span class="n">s</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w">   </span><span class="n">ops</span><span class="w"> </span><span class="k">c</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">       </span><span class="k">ON</span><span class="w">   </span><span class="k">c</span><span class="p">.</span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">run_id</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">status</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">'STARTED'</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">WHERE</span><span class="w">       </span><span class="n">s</span><span class="p">.</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'STARTED'</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">run_id</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">run_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">dataset</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">started_at</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">FROM</span><span class="w">        </span><span class="n">ops</span><span class="w"> </span><span class="n">s</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w">   </span><span class="n">ops</span><span class="w"> </span><span class="k">c</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">       </span><span class="k">ON</span><span class="w">   </span><span class="k">c</span><span class="p">.</span><span class="n">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">run_id</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">status</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">'STARTED'</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">WHERE</span><span class="w">       </span><span class="n">s</span><span class="p">.</span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'STARTED'</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">run_id</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span>
 </code></pre></div>
 <h3 id="usarlo-por-tu-cuenta">Usarlo por tu cuenta<a class="headerlink" href="#usarlo-por-tu-cuenta" title="Permanent link">&para;</a></h3>
 <p>Fuera del engine, el ciclo es explícito. <code>log_start()</code> devuelve el <code>run_id</code> que
 necesitan los dos cierres:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">DKOps.ingestion.ops.ops_logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">IngestionOpsLogger</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">ops</span>    <span class="o">=</span> <span class="n">IngestionOpsLogger</span><span class="p">(</span><span class="n">spark</span><span class="p">,</span> <span class="n">ops_path</span><span class="o">=</span><span class="s2">"/mnt/_ops/mi_proceso"</span><span class="p">,</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>                            <span class="n">pipeline</span><span class="o">=</span><span class="s2">"carga_manual"</span><span class="p">)</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">run_id</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">log_start</span><span class="p">(</span><span class="s2">"ventas"</span><span class="p">)</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">filas</span> <span class="o">=</span> <span class="n">mi_carga</span><span class="p">()</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="n">ops</span><span class="o">.</span><span class="n">log_success</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">"ventas"</span><span class="p">,</span> <span class="n">rows_written</span><span class="o">=</span><span class="n">filas</span><span class="p">)</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">ops</span><span class="o">.</span><span class="n">log_failure</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">"ventas"</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="k">raise</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">DKOps.ingestion.ops.ops_logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">IngestionOpsLogger</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">ops</span>    <span class="o">=</span> <span class="n">IngestionOpsLogger</span><span class="p">(</span><span class="n">spark</span><span class="p">,</span> <span class="n">ops_path</span><span class="o">=</span><span class="s2">"/mnt/_ops/mi_proceso"</span><span class="p">,</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>                            <span class="n">pipeline</span><span class="o">=</span><span class="s2">"carga_manual"</span><span class="p">)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">run_id</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">log_start</span><span class="p">(</span><span class="s2">"ventas"</span><span class="p">)</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="n">filas</span> <span class="o">=</span> <span class="n">mi_carga</span><span class="p">()</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    <span class="n">ops</span><span class="o">.</span><span class="n">log_success</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">"ventas"</span><span class="p">,</span> <span class="n">rows_written</span><span class="o">=</span><span class="n">filas</span><span class="p">)</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="n">ops</span><span class="o">.</span><span class="n">log_failure</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">"ventas"</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="k">raise</span>
 </code></pre></div>
 <p>Fíjate en el <code>raise</code>: <code>log_failure()</code> <strong>deja constancia pero no propaga</strong>. Si te
 lo callas, el proceso termina en verde con un <code>FAILED</code> en la tabla.</p>
@@ -2327,7 +2414,7 @@ escribía.</p>
 <p>El <code>started_at</code> se guarda en memoria. Si el proceso se reinicia, la fila de
 cierre se escribe igualmente pero con <code>started_at</code> a <code>NULL</code>, en lugar de
 perderse. Esas filas se reconocen así:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">ops</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">'STARTED'</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">started_at</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">ops</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s1">'STARTED'</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">started_at</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span>
 </code></pre></div>
 <p>Para calcular su duración necesitas el join por <code>run_id</code> contra la fila
 <code>STARTED</code>. En el caso normal no hace falta.</p>
